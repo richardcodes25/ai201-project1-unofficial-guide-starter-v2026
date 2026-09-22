@@ -22,10 +22,16 @@ to it, write down what you saw, and move on. That's a real observation about
 your pipeline, not giving up.
 """
 
+import re
 from dataclasses import dataclass
 
 import config
 from ingest import Document
+
+# First paragraph is a title if it's a single short line. Measured titles in
+# campus_life are 10–47 characters; 60 leaves room without swallowing a body
+# sentence like "Expect 4 hours a week outside class."
+_TITLE_MAX = 60
 
 
 @dataclass
@@ -80,24 +86,99 @@ def fallback_split(
     return chunks
 
 
+def _title_of(paragraphs: list[str]) -> str | None:
+    """The first block is a title when it's one short line, not a body paragraph."""
+    first = paragraphs[0]
+    if "\n" not in first and len(first) <= _TITLE_MAX:
+        return first
+    return None
+
+
+def _split_sentences(text: str) -> list[str]:
+    parts = re.split(r"(?<=[.!?])\s+", text.strip())
+    return [p for p in parts if p]
+
+
+def _fit_size(text: str, title: str | None) -> list[str]:
+    """Keep a paragraph as one piece unless it overruns CHUNK_SIZE.
+
+    The only time this fires on campus_life is a safety net: the longest body
+    paragraph I measured was 373 characters. If one ever exceeds the cap, cut
+    on sentence ends and repeat the title plus CHUNK_OVERLAP of the previous
+    sentence so a number isn't stranded without its subject.
+    """
+    if len(text) <= config.CHUNK_SIZE:
+        return [text]
+
+    body = text
+    prefix = ""
+    if title and text.startswith(title):
+        prefix = title
+        body = text[len(title) :].lstrip()
+
+    sentences = _split_sentences(body)
+    if len(sentences) <= 1:
+        return [text]
+
+    pieces: list[str] = []
+    current = ""
+    for sentence in sentences:
+        candidate = f"{current} {sentence}".strip() if current else sentence
+        wrapped = f"{prefix}\n\n{candidate}".strip() if prefix else candidate
+        if current and len(wrapped) > config.CHUNK_SIZE:
+            pieces.append(f"{prefix}\n\n{current}".strip() if prefix else current)
+            carry = current[-config.CHUNK_OVERLAP :].strip() if config.CHUNK_OVERLAP else ""
+            current = f"{carry} {sentence}".strip() if carry else sentence
+        else:
+            current = candidate
+    if current:
+        pieces.append(f"{prefix}\n\n{current}".strip() if prefix else current)
+    return pieces or [text]
+
+
+def _paragraph_chunks(text: str) -> list[str]:
+    """One chunk per body paragraph, with the post's title repeated on each.
+
+    campus_life posts hold two or three thoughts (hours vs exams, rooms vs
+    laundry). A whole-post chunk buries the useful sentence. A title-only
+    chunk answers nothing. Repeating the title is the overlap.
+    """
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    if not paragraphs:
+        return [text.strip()] if text.strip() else []
+
+    title = _title_of(paragraphs)
+    body = paragraphs[1:] if title else paragraphs
+    if not body:
+        return [title] if title else []
+
+    chunks: list[str] = []
+    for paragraph in body:
+        piece = f"{title}\n\n{paragraph}" if title else paragraph
+        chunks.extend(_fit_size(piece, title))
+    return chunks
+
+
 def split_documents(documents: list[Document]) -> list[Chunk]:
     """
-    Split documents into chunks. ⚠️ REPLACE THE BODY OF THIS IN MILESTONE 3.
+    Split campus_life posts on paragraph boundaries, not character windows.
 
-    Right now it just calls the fallback. That is the plain, generic behaviour
-    the brief is talking about.
-
-    When you write your own strategy, set `produced_by` to
-    "chunker.py::split_documents" so your README's Sample Chunks section names
-    the right function. `app.py chunks` prints that string for you.
-
-    Things worth thinking about before you write any code:
-      - Are your documents short posts or long guides?
-      - Is the useful information in one sentence, or spread over a paragraph?
-      - Would splitting on paragraph breaks keep more thoughts intact than
-        splitting on a character count?
+    Each body paragraph becomes its own chunk, with the post title prepended
+    so a fact like "90 square feet" still names Calder Annexe. produced_by
+    is this function so the README can cite it.
     """
-    return fallback_split(documents)
+    chunks: list[Chunk] = []
+    for doc in documents:
+        for index, piece in enumerate(_paragraph_chunks(doc.text)):
+            chunks.append(
+                Chunk(
+                    text=piece,
+                    source=doc.source,
+                    index=index,
+                    produced_by="chunker.py::split_documents",
+                )
+            )
+    return chunks
 
 
 def describe(chunks: list[Chunk]) -> str:

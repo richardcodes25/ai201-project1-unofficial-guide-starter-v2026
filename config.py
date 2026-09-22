@@ -24,11 +24,12 @@ CORPUS = os.getenv("AI201_CORPUS", "campus_life")
 
 
 # ─── Chunking (Milestone 3) ──────────────────────────────────────────────────
-# These are deliberately plain, generic numbers. Milestone 3 is where you
-# replace them with numbers that fit the documents you actually read.
+# campus_life posts are 178–549 characters (avg 317). The starter's 800 never
+# split them. We split on paragraphs instead; these two numbers are a safety
+# cap and the title-length overlap, not a sliding window.
 
-CHUNK_SIZE = 800        # characters per chunk
-CHUNK_OVERLAP = 120     # characters shared between neighbouring chunks
+CHUNK_SIZE = 420        # longest body paragraph I measured was 373; title adds ~40
+CHUNK_OVERLAP = 40      # typical title line (10–47 chars). Repeated on every chunk.
 
 
 # ─── Retrieval (Milestone 4) ─────────────────────────────────────────────────

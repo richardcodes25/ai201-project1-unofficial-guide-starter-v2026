@@ -29,53 +29,57 @@ richardcodes25 — corpus: `campus_life`
 
 ## Chunking Strategy
 
-**Chunk size:**
-**Overlap:**
+**Chunk size:** 420 characters (a cap, not a sliding window)
+**Overlap:** 40 characters (the post title, repeated on every chunk)
 
-<!-- What about YOUR documents made you pick these numbers? Short posts and
-     long sectioned guides don't want the same chunking, and "800 seemed
-     reasonable" earns nothing. Point at something you noticed when you read
-     the documents in Milestone 1.
+The starter reported 88 documents → 88 chunks, average 317 characters (shortest 178, longest 549). Nothing reached 800, so it never split a post. I first thought one post should stay one chunk. Then I reread the housing and course files: Calder Annexe puts room size, laundry, and noise in separate paragraphs; CS 210 puts weekly hours in one paragraph and "front-loaded" in the next. A whole-post chunk buries the sentence that actually answers the question.
 
-     If you changed your mind partway through, say so and say why. That's worth
-     more than pretending you got it right first time.
+So I split on blank lines instead of character windows. The first short line is the title and gets prepended to every body paragraph, which is the overlap — "90 square feet" still says Calder Annexe. 420 is just above the longest body paragraph I measured (373, the housing-lottery post) plus a ~40-character title, so a complete admin paragraph is not cut mid-sentence. 40 is the title length (titles run 10–47 characters). If a paragraph ever exceeds 420, the chunker cuts on sentence ends and carries 40 characters forward.
 
-     Milestone 3. -->
+Result: 183 chunks, average 167, shortest 63, longest 397. No 2-character tails.
 
 ## Sample Chunks
 
-<!-- Five chunks, pasted as text. Label each one and name the file it came from
-     AND the function that produced it — the grader checks your code against
-     what you claim here.
+From `python app.py chunks -n 5`.
 
-     `python app.py chunks -n 5` prints all three for you. Copy them straight
-     across.
-
-     Milestone 3. -->
-
-**Chunk 1** — source: `` — produced by: ``
+**Chunk 1** — source: `admin_add_drop_deadline.txt#0` — produced by: `chunker.py::split_documents`
 
 ```
+On the add/drop deadline
+
+You can add a course through the end of the second week. Dropping is a longer window — through the end of week six — but a drop after week two shows as a W on your transcript. Nothing anywhere on the registrar's site says this plainly, and students find out from each other.
 ```
 
-**Chunk 2** — source: `` — produced by: ``
+**Chunk 2** — source: `course_cs_340_exams.txt#1` — produced by: `chunker.py::split_documents`
 
 ```
+CS 340 Databases — assessment
+
+Start the term project in week three, not week eight; everyone learns this the hard way.
 ```
 
-**Chunk 3** — source: `` — produced by: ``
+**Chunk 3** — source: `course_phys_130_workload.txt#0` — produced by: `chunker.py::split_documents`
 
 ```
+Workload for PHYS 130 Mechanics
+
+People keep asking so: 7 hours a week, plus 3 on lab weeks. That's real time, not optimistic time.
 ```
 
-**Chunk 4** — source: `` — produced by: ``
+**Chunk 4** — source: `dining_verrill_street_grill_followup.txt#1` — produced by: `chunker.py::split_documents`
 
 ```
+Re: Verrill Street Grill
+
+Also worth saying: one register, so the queue is a single line no matter how busy. Nobody tells you this at orientation.
 ```
 
-**Chunk 5** — source: `` — produced by: ``
+**Chunk 5** — source: `housing_morrow_house.txt#1` — produced by: `chunker.py::split_documents`
 
 ```
+Morrow House — what it's actually like
+
+The good: cheapest housing tier by about $900 a year, and the singles are real singles.
 ```
 
 ## Sample Answer
