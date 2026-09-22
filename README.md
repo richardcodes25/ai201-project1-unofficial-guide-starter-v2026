@@ -21,11 +21,7 @@ richardcodes25 — corpus: `campus_life`
 
 ## What This Does
 
-<!-- Three or four sentences. Which corpus you picked, and the kinds of
-     questions your system answers. Write it for someone who has never seen
-     this repo.
-
-     Milestone 5. -->
+The Unofficial Guide answers questions from 88 short `campus_life` posts — dining wait times, housing lottery rules, course hours, pass/fail deadlines, and what a dorm is actually like. You type a plain question; the system retrieves the closest chunks and writes a short answer that names the file it used. It is built for questions with a checkable fact ("how large are Calder singles?", "until which week can I declare pass/fail?"), not for "which dining hall is good." If nothing comes back closer than distance 0.55, it stops and says it doesn't have enough information instead of guessing.
 
 ## Chunking Strategy
 
@@ -121,18 +117,9 @@ In-corpus bests were 0.05–0.32. Out-of-scope bests were 0.79–0.92. The gap i
 
 ## How I Used AI
 
-<!-- Two specific moments. For each: what you asked for, what came back, and
-     what you changed about it.
+**1.** I asked Cursor to write a paragraph chunker for `campus_life` and to merge any leftover short paragraph into the next one so titles would not become their own chunks. The first draft treated anything under 50 characters as leftover. That would have glued "Expect 8 to 10 hours a week outside class" (42 characters) onto the next paragraph and buried the number our CS 210 question needs. I listed every short body paragraph first, saw they were complete facts, and changed the rule: only the first short line is a title, and it gets prepended to every body chunk.
 
-     "I asked Claude to write the chunking function from my notes. It ignored
-     the overlap, so I added that myself" is the level of detail we're after.
-     "I used AI to help me code" is not.
-
-     Milestone 5. -->
-
-**1.**
-
-**2.**
+**2.** I pasted the five acceptance-criterion sentences and asked: for each one, say exactly how you would test it using only what the sentence says — don't suggest improvements. Criterion 1 failed that test. "Contains the answer" is not defined in the sentence, so two people could score the same run differently. I left the starter wording (the assignment wrote that one) and put the check in the Why: a chunk counts only if it contains that question's `expects` phrase from `questions.py`.
 
 <!-- ── Stretch features ─────────────────────────────────────────────────────
      Doing one? Say so here BEFORE you start. A feature this README never
