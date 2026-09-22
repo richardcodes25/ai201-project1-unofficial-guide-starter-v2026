@@ -5,6 +5,8 @@ The Unofficial Guide — command line.
     python app.py index                  build the search index (do this first)
     python app.py ask "your question"    ask one question
     python app.py ask                    ask questions until you quit
+    python app.py ask --topic dining "..."   stretch: filter by topic
+    python app.py retrieve --source FILE "..."  stretch: filter by source file
     python app.py chunks                 print sample chunks      (Milestone 3)
     python app.py retrieve "question"    show distances, no answer (Milestone 4)
     python app.py corpora                list the available corpora
@@ -14,10 +16,34 @@ editing config.py.
 """
 
 import argparse
+import re
 import sys
 import time
 
 import config
+
+# Follow-ups we rewrite against the last question (stretch: conversational memory).
+_FOLLOW_UP = re.compile(
+    r"^(what about|how about|and\b|also\b|that\b|those\b|"
+    r"what if|is that|does it|how much (there|is it)|same\b)",
+    re.IGNORECASE,
+)
+
+
+def looks_like_followup(question: str, last_question: str | None) -> bool:
+    if not last_question:
+        return False
+    if _FOLLOW_UP.search(question):
+        return True
+    short = len(question.split()) <= 8
+    has_ref = re.search(r"\b(it|that|there|those|this|them|same)\b", question, re.I)
+    return bool(short and has_ref)
+
+
+def with_memory(question: str, last_question: str | None) -> str:
+    if not looks_like_followup(question, last_question):
+        return question
+    return f"{question} (follow-up to: {last_question})"
 
 
 def cmd_corpora(args):
@@ -154,18 +180,22 @@ def cmd_retrieve(args):
         top_k=args.top_k or config.TOP_K,
         corpus=args.corpus or config.CORPUS,
         variant=args.variant,
+        source=getattr(args, "source", None),
+        topic=getattr(args, "topic", None),
     )
 
     if not results:
         print("Nothing came back. Have you run `python app.py index`?")
+        if getattr(args, "source", None) or getattr(args, "topic", None):
+            print("Or the --source / --topic filter matched no chunks.")
         return
 
     print(f"\nQuestion: {args.question}\n")
-    print(f"{'#':<3} {'distance':<10} {'source':<32} preview")
-    print("-" * 100)
+    print(f"{'#':<3} {'distance':<10} {'topic':<10} {'source':<32} preview")
+    print("-" * 110)
     for i, r in enumerate(results, 1):
         preview = r.text[:52].replace("\n", " ")
-        print(f"{i:<3} {r.distance:<10.4f} {r.source:<32} {preview}...")
+        print(f"{i:<3} {r.distance:<10.4f} {r.topic:<10} {r.source:<32} {preview}...")
 
     decision = gate.check(results)
     print(f"\nGate: {decision.explanation}")
@@ -183,6 +213,8 @@ def ask_pipeline(
     threshold=None,
     on_gate=None,
     on_prompt=None,
+    source=None,
+    topic=None,
 ):
     """Retrieve, gate, answer. Returns the outcome and prints nothing.
 
@@ -208,6 +240,8 @@ def ask_pipeline(
         top_k=top_k or config.TOP_K,
         corpus=corpus or config.CORPUS,
         variant=variant,
+        source=source,
+        topic=topic,
     )
     decision = gate.check(results, threshold=threshold)
     if on_gate is not None:
@@ -244,6 +278,8 @@ def _ask_one(
     threshold,
     show_distances=True,
     show_prompt=False,
+    source=None,
+    topic=None,
 ):
     import gate
     from generate import GROUNDING_INSTRUCTION
@@ -271,6 +307,8 @@ def _ask_one(
         threshold=threshold,
         on_gate=print_distances if show_distances else None,
         on_prompt=print_prompt if show_prompt else None,
+        source=source,
+        topic=topic,
     )
 
     if outcome["refused"]:
@@ -295,9 +333,13 @@ def cmd_ask(args):
                 args.top_k,
                 args.threshold,
                 show_prompt=args.show_prompt,
+                source=args.source,
+                topic=args.topic,
             )
         else:
-            print("Ask a question, or press Enter on an empty line to quit.\n")
+            print("Ask a question, or press Enter on an empty line to quit.")
+            print("Follow-ups like 'what about laundry?' use the last question.\n")
+            last_question = None
             while True:
                 try:
                     question = input("> ").strip()
@@ -306,14 +348,21 @@ def cmd_ask(args):
                     break
                 if not question:
                     break
+                asked = with_memory(question, last_question)
+                if asked != question:
+                    print(f"  (remembering: {asked})")
                 _ask_one(
-                    question,
+                    asked,
                     corpus,
                     args.variant,
                     args.top_k,
                     args.threshold,
                     show_prompt=args.show_prompt,
+                    source=args.source,
+                    topic=args.topic,
                 )
+                if asked == question:
+                    last_question = question
     finally:
         print(gen.usage())
 
@@ -360,12 +409,16 @@ def build_parser():
     p_ret = sub.add_parser("retrieve", help="show distances only (Milestone 4)")
     p_ret.add_argument("question")
     p_ret.add_argument("--top-k", type=int)
+    p_ret.add_argument("--source", help="stretch: only this filename")
+    p_ret.add_argument("--topic", help="stretch: dining, housing, course, admin, …")
     p_ret.set_defaults(func=cmd_retrieve)
 
     p_ask = sub.add_parser("ask", help="ask a question")
     p_ask.add_argument("question", nargs="?")
     p_ask.add_argument("--top-k", type=int)
     p_ask.add_argument("--threshold", type=float, help="override the gate cutoff")
+    p_ask.add_argument("--source", help="stretch: only this filename")
+    p_ask.add_argument("--topic", help="stretch: dining, housing, course, admin, …")
     p_ask.add_argument(
         "--show-prompt",
         action="store_true",

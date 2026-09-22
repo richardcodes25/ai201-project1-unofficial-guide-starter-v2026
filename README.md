@@ -121,10 +121,13 @@ In-corpus bests were 0.05–0.32. Out-of-scope bests were 0.79–0.92. The gap i
 
 **2.** I pasted the five acceptance-criterion sentences and asked: for each one, say exactly how you would test it using only what the sentence says — don't suggest improvements. Criterion 1 failed that test. "Contains the answer" is not defined in the sentence, so two people could score the same run differently. I left the starter wording (the assignment wrote that one) and put the check in the Why: a chunk counts only if it contains that question's `expects` phrase from `questions.py`.
 
-<!-- ── Stretch features ─────────────────────────────────────────────────────
-     Doing one? Say so here BEFORE you start. A feature this README never
-     claims earns nothing.
-     ───────────────────────────────────────────────────────────────────────── -->
+## Stretch features (claimed before building)
+
+Two extras, both for the CLI. Not doing a second embedding model — that install pulls PyTorch.
+
+**Metadata filtering.** `campus_life` has no dates, so the filter is by source file or topic (`dining`, `housing`, `course`, `admin`, … — the first word of the filename). `--topic dining` or `--source admin_housing_lottery.txt` on `ask` and `retrieve`.
+
+**Conversational memory.** `python app.py ask` with no question keeps the last question. A follow-up like "what about laundry?" is rewritten against that last question before retrieval.
 
 ---
 

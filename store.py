@@ -33,6 +33,25 @@ import config
 from chunker import Chunk
 
 
+def topic_from_source(source: str) -> str:
+    """First token of the filename: housing_calder_annexe.txt → housing."""
+    stem = source.rsplit(".", 1)[0]
+    return stem.split("_", 1)[0].lower()
+
+
+def _where(source: str | None = None, topic: str | None = None) -> dict | None:
+    clauses = []
+    if source:
+        clauses.append({"source": source})
+    if topic:
+        clauses.append({"topic": topic.lower()})
+    if not clauses:
+        return None
+    if len(clauses) == 1:
+        return clauses[0]
+    return {"$and": clauses}
+
+
 @dataclass
 class Result:
     """One retrieved chunk and how far it was from the question."""
@@ -42,6 +61,7 @@ class Result:
     label: str
     distance: float   # LOWER IS BETTER. 0.3 is close, 0.9 is unrelated.
     produced_by: str
+    topic: str = ""
 
 
 _model = None
@@ -170,7 +190,12 @@ def build_index(
             documents=[c.text for c in window],
             embeddings=embed([c.text for c in window]),
             metadatas=[
-                {"source": c.source, "index": c.index, "produced_by": c.produced_by}
+                {
+                    "source": c.source,
+                    "topic": topic_from_source(c.source),
+                    "index": c.index,
+                    "produced_by": c.produced_by,
+                }
                 for c in window
             ],
         )
@@ -183,10 +208,13 @@ def search(
     top_k: int | None = None,
     corpus: str | None = None,
     variant: str = "default",
+    source: str | None = None,
+    topic: str | None = None,
 ) -> list[Result]:
     """
     Retrieve the chunks closest in meaning to a question.
 
+    `source` and `topic` are optional Chroma `where` filters (stretch).
     Returns them nearest-first, each with its distance.
     """
     top_k = top_k or config.TOP_K
@@ -199,22 +227,31 @@ def search(
             f"No index called '{name}'. Run `python app.py index` first."
         ) from exc
 
-    raw = collection.query(
-        query_embeddings=embed([question]),
-        n_results=min(top_k, collection.count()),
-    )
+    where = _where(source, topic)
+    kwargs = {
+        "query_embeddings": embed([question]),
+        "n_results": min(top_k, collection.count()),
+    }
+    if where is not None:
+        kwargs["where"] = where
+
+    raw = collection.query(**kwargs)
+    if not raw["documents"] or not raw["documents"][0]:
+        return []
 
     results: list[Result] = []
     for text, meta, distance in zip(
         raw["documents"][0], raw["metadatas"][0], raw["distances"][0]
     ):
+        src = str(meta.get("source", "unknown"))
         results.append(
             Result(
                 text=text,
-                source=str(meta.get("source", "unknown")),
-                label=f"{meta.get('source', 'unknown')}#{meta.get('index', 0)}",
+                source=src,
+                label=f"{src}#{meta.get('index', 0)}",
                 distance=float(distance),
                 produced_by=str(meta.get("produced_by", "unknown")),
+                topic=str(meta.get("topic") or topic_from_source(src)),
             )
         )
     return results
