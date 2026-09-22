@@ -34,17 +34,19 @@ CHUNK_OVERLAP = 40      # typical title line (10–47 chars). Repeated on every 
 
 # ─── Retrieval (Milestone 4) ─────────────────────────────────────────────────
 
-TOP_K = 5               # how many chunks to pull back per question
+TOP_K = 5               # Calder's "90 square feet" landed at rank 2; k=3 would still catch it
 
 # The relevance gate. If the best chunk is further away than this, the system
 # refuses to answer instead of handing the model thin material.
 #
 # LOWER IS BETTER: 0.3 is a close match, 0.9 is unrelated.
 #
-# 0.6 is a reasonable starting point, not a right answer. Milestone 4 has you
-# measure your own two groups of distances and put the cutoff in the gap.
-# Most corpora land somewhere between 0.45 and 0.75.
-THRESHOLD = 0.6
+# Measured on this corpus after paragraph chunking:
+#   in-corpus bests  0.05–0.32
+#   OUT_OF_SCOPE     0.79–0.92
+# 0.55 sits in that gap. 0.3 would refuse Calder (best 0.32). 0.9 would
+# answer Mongolia (best 0.79).
+THRESHOLD = 0.55
 
 
 # ─── Models ──────────────────────────────────────────────────────────────────

@@ -84,30 +84,40 @@ The good: cheapest housing tier by about $900 a year, and the singles are real s
 
 ## Sample Answer
 
-<!-- One complete question and answer, pasted as text, with the source line
-     visible. Milestone 4. -->
-
-**Question:**
+**Question:** How are juniors and seniors ordered in the housing lottery?
 
 **Answer:**
 
 ```
+  (best distance 0.225, cutoff 0.55)
+
+Juniors and seniors are ordered by accumulated credit hours first, with ties broken randomly in the housing lottery.
+
+Source: admin_housing_lottery.txt
+
+Sources retrieved: admin_housing_lottery.txt, advising_registration.txt, housing_aldridge_hall.txt, housing_calder_annexe.txt, housing_morrow_house.txt
 ```
 
-**My relevance cutoff:**
+Off-topic check, same cutoff: `What is the capital of Mongolia?` returned `I don't have enough information about that.` (best distance 0.787, no model call).
 
-<!-- The number you set in config.py, and how you got there.
+**My relevance cutoff:** 0.55
 
-     You ran five questions your corpus covers and the five in OUT_OF_SCOPE
-     that it clearly doesn't, and wrote down the best distance for each. What
-     did those two groups look like? Where was the gap? Put the actual numbers
-     here — the table below wants all ten rows.
+I kept top-k at 5. The Calder size question puts the sentence with "90 square feet" at rank 2 (distance 0.336); rank 1 is the same file's room-layout paragraph (0.317). k=1 would miss the number. k=5 still brings in other dining-hall follow-ups on the Commons question — those share the word "wait" — so I tightened the grounding instruction to use only the excerpt about the place named in the question.
 
-     Milestone 4. -->
+In-corpus bests were 0.05–0.32. Out-of-scope bests were 0.79–0.92. The gap is 0.32 to 0.79. 0.55 sits in the middle. 0.3 would refuse Calder. 0.9 would answer Mongolia.
 
 | Question | In corpus? | Best distance |
 |---|---|---|
-|  |  |  |
+| Wait times at Kestrel Commons between 12:15 and 1:00 | yes | 0.236 |
+| How juniors and seniors are ordered in the housing lottery | yes | 0.225 |
+| Weekly hours outside class for CS 210 | yes | 0.054 |
+| Latest week to declare pass/fail after a midterm | yes | 0.254 |
+| Size of Calder Annexe singles | yes | 0.317 |
+| What is the capital of Mongolia? | no | 0.787 |
+| How do I change the oil in a diesel engine? | no | 0.923 |
+| Who won the 1994 World Cup? | no | 0.847 |
+| What is the recommended dosage of ibuprofen for a headache? | no | 0.849 |
+| How do I write a for loop in Rust? | no | 0.860 |
 
 ## How I Used AI
 

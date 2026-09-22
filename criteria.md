@@ -54,12 +54,13 @@ stops it and the system returns "I don't have enough information about that" —
 in at least 4 of 5 tries.
 
 **Why this target:**
-The five `OUT_OF_SCOPE` questions (Mongolia, diesel oil, the 1994 World Cup,
-ibuprofen, Rust) share almost no vocabulary with dining-hall and dorm posts,
-so I expect a clean gap once I measure distances in Milestone 4. I have not
-measured that gap yet; 0.6 is still the starter cutoff. 4 of 5 allows one
-weird nearest-neighbor. 5 of 5 would treat a single embedding accident as a
-failed cutoff. 3 of 5 would accept a gate that barely works.
+Measured in Milestone 4: the five in-corpus questions had best distances
+0.05–0.32; the five `OUT_OF_SCOPE` questions (Mongolia, diesel oil, the
+1994 World Cup, ibuprofen, Rust) had best distances 0.79–0.92. I put the
+cutoff at 0.55, in that gap. 4 of 5 allows one weird nearest-neighbor if
+an out-of-scope question later lands closer. 5 of 5 would treat a single
+embedding accident as a failed cutoff. 3 of 5 would accept a gate that
+barely works.
 
 ---
 
