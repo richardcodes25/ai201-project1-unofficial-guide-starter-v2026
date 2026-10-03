@@ -268,8 +268,11 @@ def search(
     Retrieve chunks for a question: meaning first, then keyword rerank.
 
     Semantic search supplies the candidates and the cosine distance. BM25
-    reranks those candidates. `source` and `topic` are optional Chroma
-    `where` filters (stretch). Each result still carries its cosine distance.
+    reranks those candidates. The nearest semantic chunk stays in the
+    returned set even when the rerank drops it out of the top k, so
+    `gate.py::check` still compares the true nearest distance to the cutoff.
+    `source` and `topic` are optional Chroma `where` filters (stretch).
+    Each result still carries its cosine distance.
     """
     top_k = top_k or config.TOP_K
     name = config.collection_name(corpus, variant)
@@ -315,8 +318,17 @@ def search(
         )
     }
 
+    # The gate refuses on the closest cosine in this list. BM25 can rank
+    # that nearest chunk out of the top k (Mongolia went from 0.787 to
+    # 0.826). Keep it in the set the gate sees. Order of the rest stays
+    # the keyword rerank, so Calder's size sentence stays first.
+    selected = list(ordered_ids[:top_k])
+    closest_id = min(by_id, key=lambda doc_id: by_id[doc_id][2])
+    if closest_id not in selected:
+        selected.append(closest_id)
+
     results: list[Result] = []
-    for doc_id in ordered_ids[:top_k]:
+    for doc_id in selected:
         text, meta, distance = by_id[doc_id]
         src = str(meta.get("source", "unknown"))
         results.append(

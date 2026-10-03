@@ -405,13 +405,54 @@ The gate's best distance stays 0.317, because it uses the closest cosine in the 
 
 A second change from the Milestone 4 menu: tune the relevance gate so its cutoff is applied to the nearest semantic chunk, even when the BM25 rerank drops that chunk out of the top 5. This is for the gap the first change left. On the after log, Mongolia's reported distance moved from 0.787 to 0.826, and the diesel question from 0.923 to 0.934.
 
+**What I changed:** `store.py::search` still returns the BM25 order, and it appends the nearest semantic chunk when that chunk fell out of the top 5. `gate.py::check` is unchanged: it still refuses when the closest cosine in the set it was given is over 0.55. The difference is that the set now includes that nearest chunk.
+
+### Run Log — Stretch
+
+`python run_eval.py --label stretch` on 2026-10-03, cache off. Raw file: `results/run_2026-10-03_1940_stretch.md`, produced by `run_eval.py::main`. 15 model calls. Criterion 4 is the same five chunks as the before log (`chunker.py::split_documents`); this change does not touch chunking.
+
+| Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
+|---|---|---|---|---|---|
+| 1. Retrieved chunk contains the answer | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 2. Every answer names a source | 5 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 3. Gate stops out-of-corpus questions | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 4. Chunk keeps a topic and its fact together | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 5. Answer has the expected phrase and cites a file that has it | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+
+The gate table from that file, produced by `run_eval.py::check_out_of_scope`:
+
+| Out-of-scope question | Best distance | Gate |
+|---|---|---|
+| What is the capital of Mongolia? | 0.787 | refused |
+| How do I change the oil in a diesel engine? | 0.923 | refused |
+| Who won the 1994 World Cup? | 0.847 | refused |
+| What is the recommended dosage of ibuprofen for a headache? | 0.849 | refused |
+| How do I write a for loop in Rust? | 0.860 | refused |
+
+Calder's top chunk, produced by `store.py::search`, is still the size sentence, so the first change stayed:
+
+```
+#1  distance 0.3362  housing_calder_annexe.txt#2
+The bad: the singles are small — about 90 square feet — and the desks are fixed.
+```
+
+Run 1 of the Calder answer, produced by `generate.py::answer_from_chunks`:
+
+```
+The singles at Calder Annexe are small, measuring about 90 square feet. 
+
+Source: housing_calder_annexe.txt
+```
+
+The other four questions on all three runs also contain the `expects` phrase and name a file that contains it.
+
+**Did it help?** The five written criteria stay 5/5, same as the before log and the after log, so that table does not move. It helped the gate gap. Mongolia's best distance was 0.787 before the rerank, 0.826 after it, and 0.787 again on this log. Diesel was 0.923, then 0.934, then 0.923. Both are refusals on every log. The other three out-of-scope distances did not change (0.847, 0.849, 0.860).
+
 ## What's Still Broken
 
-None of the five written criteria is missed. After the rerank they are all still 5/5 against the targets in `criteria.md`. Two gaps are left, and the targets do not show them.
+None of the five written criteria is missed on any of the three logs. All five are 5/5 against the targets in `criteria.md`.
 
-The gate's reported distance is no longer always the nearest semantic chunk. Mongolia moved from 0.787 to 0.826, and the diesel question from 0.923 to 0.934, because BM25 dropped the closest chunk out of the five the gate sees. Both are still above 0.55, so criterion 3 stays met. I would keep the semantic nearest neighbor in the set the gate measures, and let BM25 reorder only the chunks the model reads. I stopped because that is a second change, and these five refusals still hold.
-
-The keyword weight of 1.5 exists to win Calder's rank swap. I do not have a question where meaning is right and the keywords point at a different chunk by a similar margin. That question could flip the wrong way, and criterion 1 would still pass as long as the right phrase stayed somewhere in the top 5. I stopped because this unit allows one change, and on these five test questions the phrase is now in rank 1.
+The gate gap is closed by the second change, and the numbers above are how I know. What is still open is the keyword weight. 1.5 was set so BM25 could win Calder's rank swap, where the two systems exchanged rank 1 and 2. I do not have a question where meaning is right and the keywords point at a different chunk by a similar margin. That question could flip the wrong way, and the written criterion 1 would still pass if the phrase stayed anywhere in the top 5. I stopped there. A third system change would no longer be one improvement plus the stretch, and the five test questions already have the phrase in rank 1.
 
 ## What I'd Do Differently
 
