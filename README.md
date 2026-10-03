@@ -327,34 +327,75 @@ I would tighten criterion 1 to: for all 5 of 5 questions, the top-ranked chunk c
 
 ## The Improvement
 
-**What I changed:**
+**What I changed:** `store.py::search` still retrieves by meaning, then reranks those candidates with BM25 (`store.py::_hybrid_order`). Cosine distance is unchanged, and the gate still reads the closest distance in the returned set. The keyword weight is 1.5. Weight 1.0 ties when the two systems swap rank 1 and 2, and that tie keeps the semantic order, which is the Calder miss.
 
-**Why I picked it:**
-
-<!-- Connect it to a specific diagnosis above in one sentence. If you can't,
-     you picked a fix because it sounded impressive. -->
+**Why I picked it:** The diagnosis said retrieval already had the "90 square feet" sentence and had ranked the layout paragraph 0.019 ahead of it, so a keyword rerank is the change that can put the size sentence first without touching chunking or the prompt.
 
 ### Run Log — After
 
-<!-- Same format, same five criteria, three runs each.
-     `python run_eval.py --label after` -->
+`python run_eval.py --label after` on 2026-10-03, cache off. Raw file: `results/run_2026-10-03_1933_after.md`, produced by `run_eval.py::main`. 15 model calls. The before log is above, under Run Log — Before.
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1. Retrieved chunk contains the answer | 4 of 5 |  |  |  |  |
-| 2. Every answer names a source | 5 of 5 |  |  |  |  |
-| 3. Gate stops out-of-corpus questions | 4 of 5 |  |  |  |  |
-| 4. | | | | | |
-| 5. | | | | | |
+| 1. Retrieved chunk contains the answer | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 2. Every answer names a source | 5 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 3. Gate stops out-of-corpus questions | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 4. Chunk keeps a topic and its fact together | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
+| 5. Answer has the expected phrase and cites a file that has it | 4 of 5 | 5/5 | 5/5 | 5/5 | MET |
 
-**Did it help?**
+Criterion 4 is the same five chunks as the before log. I ran `python app.py chunks -n 5` again; `chunker.py::split_documents` printed the same text, starting with "On the add/drop deadline" and ending with Morrow House's "$900 a year." This change does not touch chunking.
 
-<!-- Say plainly whether it did, and how you know. If it made things worse,
-     say that — a change that backfired, honestly reported, earns full credit
-     and is more interesting than one that worked. What matters is that you can
-     tell.
+The other four criteria are from the after file. Run 1 of each answer, produced by `generate.py::answer_from_chunks`:
 
-     Milestone 4. -->
+```
+Students state that the wait time at Kestrel Commons is 20 to 25 minutes between 12:15 and 1:00. This is mentioned in `dining_kestrel_commons.txt` and `dining_kestrel_commons_followup.txt`.
+```
+
+```
+Juniors and seniors are ordered by accumulated credit hours first, with ties broken randomly. 
+
+Source: admin_housing_lottery.txt
+```
+
+```
+CS 210 Data Structures takes 8 to 10 hours a week outside class. 
+
+Source: course_cs_210.txt (and course_cs_210_workload.txt)
+```
+
+```
+A student can declare the pass/fail option as late as week eight, after seeing their midterm. 
+
+Source: admin_pass_fail_option.txt
+```
+
+```
+The singles at Calder Annexe are small, measuring about 90 square feet. 
+
+Source: housing_calder_annexe.txt
+```
+
+Runs 2 and 3 also contain the `expects` phrase and a filename whose text contains it. The gate, from `run_eval.py::check_out_of_scope`, still refused 5 of 5:
+
+| Out-of-scope question | Best distance | Gate |
+|---|---|---|
+| What is the capital of Mongolia? | 0.826 | refused |
+| How do I change the oil in a diesel engine? | 0.934 | refused |
+| Who won the 1994 World Cup? | 0.847 | refused |
+| What is the recommended dosage of ibuprofen for a headache? | 0.849 | refused |
+| How do I write a for loop in Rust? | 0.860 | refused |
+
+**Did it help?** The five written targets were already 5/5 and they are still 5/5, so that table does not move. It helped the miss the diagnosis named. Before, Calder's top chunk was the layout paragraph and did not contain "90 square feet." After, `store.py::search` returns the size sentence first:
+
+```
+#1  distance 0.3362  housing_calder_annexe.txt#2
+The bad: the singles are small — about 90 square feet — and the desks are fixed.
+
+#2  distance 0.3171  housing_calder_annexe.txt#0
+Second-year here. Built 2003. Rooms are mostly singles, some doubles, in clusters of six around a lounge.
+```
+
+The gate's best distance stays 0.317, because it uses the closest cosine in the set, and the layout paragraph is still rank 2. One side effect: Mongolia's best distance in the top 5 moved from 0.787 to 0.826, and diesel from 0.923 to 0.934, because the rerank dropped the nearest semantic chunk out of the five the gate sees. Both are still over 0.55, so criterion 3 stays met.
 
 ## What's Still Broken
 

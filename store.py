@@ -18,6 +18,7 @@ rest of the project if they were wrong:
 """
 
 import os
+import re
 import shutil
 from dataclasses import dataclass
 
@@ -28,9 +29,24 @@ from dataclasses import dataclass
 os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 
 import chromadb  # noqa: E402
+from rank_bm25 import BM25Okapi  # noqa: E402
 
 import config
 from chunker import Chunk
+
+# Hybrid rerank. Semantic search is still the candidate list and the distance
+# the gate reads. BM25 reorders that list.
+#
+# Weight 1.0 ties when the two ranks are swapped, and the tie keeps semantic
+# order. On "How large are the singles at Calder Annexe?" that swap is the
+# whole miss: meaning puts the layout paragraph first (distance 0.317) and
+# the "90 square feet" sentence second (0.336), while BM25 has them the other
+# way around. 1.5 is enough for the keyword rank to win that swap, and the
+# other four test questions already agree on rank 1, so they stay put.
+_TOKEN = re.compile(r"[a-z0-9]+")
+_RRF_K = 60
+_BM25_WEIGHT = 1.5
+_CANDIDATE_K = 20
 
 
 def topic_from_source(source: str) -> str:
@@ -203,6 +219,43 @@ def build_index(
     return len(chunks)
 
 
+def _tokens(text: str) -> list[str]:
+    return _TOKEN.findall(text.lower())
+
+
+def _hybrid_order(question: str, ids: list[str], documents: list[str], candidate_ids: list[str]) -> list[str]:
+    """Reorder semantic candidates by reciprocal rank fusion with BM25.
+
+    `candidate_ids` is nearest-first. The cosine distance on each candidate
+    stays what semantic search measured; only the order changes. Ties keep
+    the semantic order.
+    """
+    if len(candidate_ids) <= 1 or not documents:
+        return list(candidate_ids)
+
+    bm25 = BM25Okapi([_tokens(doc) or [""] for doc in documents])
+    scores = bm25.get_scores(_tokens(question))
+    score_by_id = {doc_id: float(scores[i]) for i, doc_id in enumerate(ids)}
+
+    by_keyword = sorted(
+        range(len(candidate_ids)),
+        key=lambda j: score_by_id.get(candidate_ids[j], 0.0),
+        reverse=True,
+    )
+    keyword_rank = [0] * len(candidate_ids)
+    for rank, j in enumerate(by_keyword):
+        keyword_rank[j] = rank
+
+    fused = []
+    for sem_rank, doc_id in enumerate(candidate_ids):
+        score = (1.0 / (_RRF_K + sem_rank + 1)) + (
+            _BM25_WEIGHT / (_RRF_K + keyword_rank[sem_rank] + 1)
+        )
+        fused.append((score, sem_rank, doc_id))
+    fused.sort(key=lambda row: (-row[0], row[1]))
+    return [doc_id for _, _, doc_id in fused]
+
+
 def search(
     question: str,
     top_k: int | None = None,
@@ -212,10 +265,11 @@ def search(
     topic: str | None = None,
 ) -> list[Result]:
     """
-    Retrieve the chunks closest in meaning to a question.
+    Retrieve chunks for a question: meaning first, then keyword rerank.
 
-    `source` and `topic` are optional Chroma `where` filters (stretch).
-    Returns them nearest-first, each with its distance.
+    Semantic search supplies the candidates and the cosine distance. BM25
+    reranks those candidates. `source` and `topic` are optional Chroma
+    `where` filters (stretch). Each result still carries its cosine distance.
     """
     top_k = top_k or config.TOP_K
     name = config.collection_name(corpus, variant)
@@ -227,10 +281,14 @@ def search(
             f"No index called '{name}'. Run `python app.py index` first."
         ) from exc
 
+    count = collection.count()
+    if count == 0:
+        return []
+
     where = _where(source, topic)
     kwargs = {
         "query_embeddings": embed([question]),
-        "n_results": min(top_k, collection.count()),
+        "n_results": min(max(top_k, _CANDIDATE_K), count),
     }
     if where is not None:
         kwargs["where"] = where
@@ -239,10 +297,27 @@ def search(
     if not raw["documents"] or not raw["documents"][0]:
         return []
 
+    if where is not None:
+        got = collection.get(where=where, include=["documents"])
+    else:
+        got = collection.get(include=["documents"])
+    ordered_ids = _hybrid_order(
+        question,
+        list(got.get("ids") or []),
+        list(got.get("documents") or []),
+        list(raw["ids"][0]),
+    )
+
+    by_id = {
+        doc_id: (text, meta, distance)
+        for doc_id, text, meta, distance in zip(
+            raw["ids"][0], raw["documents"][0], raw["metadatas"][0], raw["distances"][0]
+        )
+    }
+
     results: list[Result] = []
-    for text, meta, distance in zip(
-        raw["documents"][0], raw["metadatas"][0], raw["distances"][0]
-    ):
+    for doc_id in ordered_ids[:top_k]:
+        text, meta, distance = by_id[doc_id]
         src = str(meta.get("source", "unknown"))
         results.append(
             Result(
