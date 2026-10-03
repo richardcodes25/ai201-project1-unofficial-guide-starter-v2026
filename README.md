@@ -307,22 +307,15 @@ Runs 2 and 3 name the same files and contain the same phrases. 5 of 5. Target wa
 
 ## Verdicts
 
-<!-- MET or MISSED for each of the five, against the target you wrote last
-     unit — not a new one. Plus a sentence on how you decided. That sentence
-     matters most where it was close.
-
-     If your target said 4 of 5 and your runs came out 4, 3, 4, that's a MISS.
-     The target has to hold, not show up occasionally.
-
-     Milestone 2. -->
+Targets are the ones in `criteria.md` from unit 1. A criterion is MET only if the target held on every run, not on the best one. Nothing was revised: each check could be repeated the same way, and a miss would stay a miss.
 
 | # | Criterion | Verdict | How I decided |
 |---|---|---|---|
-| 1 |  |  |  |
-| 2 |  |  |  |
-| 3 |  |  |  |
-| 4 |  |  |  |
-| 5 |  |  |  |
+| 1 | Retrieved chunk contains the answer (4 of 5) | MET | All three runs were 5/5, counting a question only when a retrieved chunk contained its `expects` phrase; Calder counts because rank 2 of `housing_calder_annexe.txt` contains "90 square feet" (rank 1 does not). |
+| 2 | Every answer names a source (5 of 5) | MET | All 15 answers include a filename, which is the whole target, so one answer without one would have been a miss; pass/fail names `admin_pass_fail_option.txt` in parentheses on runs 1 and 2 and on a Source line on run 3. |
+| 3 | Gate stops out-of-corpus questions (4 of 5) | MET | `run_eval.py::check_out_of_scope` refused 5 of 5, and the closest, Mongolia at 0.787, is still above the 0.55 cutoff, so the same 5/5 goes in every run column. |
+| 4 | Chunk keeps a topic and its fact together (4 of 5) | MET | Four of the five printed chunks pair a topic with a price, a number of hours, or a named week, and no sentence is cut; Verrill's "one register" is the close fifth, and leaving it out still leaves 4 of 5. |
+| 5 | Answer has the expected phrase and cites a file that has it (4 of 5) | MET | Every run's answer contains the `expects` phrase and names a file whose text also contains it, including Calder citing `housing_calder_annexe.txt`, the file that has "90 square feet." |
 
 ## Diagnoses
 
