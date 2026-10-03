@@ -401,6 +401,10 @@ Second-year here. Built 2003. Rooms are mostly singles, some doubles, in cluster
 
 The gate's best distance stays 0.317, because it uses the closest cosine in the set, and the layout paragraph is still rank 2. One side effect: Mongolia's best distance in the top 5 moved from 0.787 to 0.826, and diesel from 0.923 to 0.934, because the rerank dropped the nearest semantic chunk out of the five the gate sees. Both are still over 0.55, so criterion 3 stays met.
 
+## Stretch — second improvement (claimed before building)
+
+A second change from the Milestone 4 menu: tune the relevance gate so its cutoff is applied to the nearest semantic chunk, even when the BM25 rerank drops that chunk out of the top 5. This is for the gap the first change left. On the after log, Mongolia's reported distance moved from 0.787 to 0.826, and the diesel question from 0.923 to 0.934.
+
 ## What's Still Broken
 
 None of the five written criteria is missed. After the rerank they are all still 5/5 against the targets in `criteria.md`. Two gaps are left, and the targets do not show them.
