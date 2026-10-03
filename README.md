@@ -319,23 +319,11 @@ Targets are the ones in `criteria.md` from unit 1. A criterion is MET only if th
 
 ## Diagnoses
 
-<!-- For each miss: which stage caused it, and how. The stage alone isn't
-     enough — you need the mechanism.
+Nothing missed. All five criteria held on every run, so there is no failure to pin on loading, chunking, embedding, retrieval, or generation.
 
-     Not a diagnosis: "Question 3 didn't work."
-     A diagnosis:     "Question 3 asks about laundry costs. The answer is in
-                       one sentence that got split across two chunks, so
-                       neither chunk on its own contains it."
+The targets were set so that could happen. Four of the five are 4 of 5, and criterion 1's reason for stopping there was that the Calder size question might miss. It did not miss under the check I wrote. Rank 1 for "How large are the singles at Calder Annexe?" is the layout paragraph in `housing_calder_annexe.txt` (distance 0.317): "Rooms are mostly singles, some doubles, in clusters of six around a lounge." The sentence with "90 square feet" is rank 2 in the same file (distance 0.336). The criterion counts any retrieved chunk, and top-k is 5, so rank 2 is a pass. Criterion 4 has the same kind of slack: Verrill's "one register" can be dropped and 4 of 5 still meets the target.
 
-     The five stages: loading → chunking → embedding → retrieval → generation.
-
-     Look for a pattern. If three misses all ask about numbers, that's one
-     problem, not three.
-
-     Missed nothing? Say so, then say honestly whether your targets were set
-     low, and which one you'd tighten and to what.
-
-     Milestone 3. -->
+I would tighten criterion 1 to: for all 5 of 5 questions, the top-ranked chunk contains that question's `expects` phrase. On this log that is a miss, and the miss is at retrieval. The chunker kept "90 square feet" in one chunk with the building name, the embedder put that chunk 0.019 behind the layout paragraph, and search returned it inside the top 5. Generation then quoted the right fact and the right file. The written target treats "the fact is in the list" and "the fact is first" as the same success, which is why a first try could clear it.
 
 ## The Improvement
 
