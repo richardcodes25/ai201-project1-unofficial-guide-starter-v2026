@@ -121,6 +121,10 @@ In-corpus bests were 0.05–0.32. Out-of-scope bests were 0.79–0.92. The gap i
 
 **2.** I pasted the five acceptance-criterion sentences and asked: for each one, say exactly how you would test it using only what the sentence says — don't suggest improvements. Criterion 1 failed that test. "Contains the answer" is not defined in the sentence, so two people could score the same run differently. I left the starter wording (the assignment wrote that one) and put the check in the Why: a chunk counts only if it contains that question's `expects` phrase from `questions.py`.
 
+**3.** This unit I had Cursor score the three-run log against those targets, including the close calls. It pointed out that every written criterion was 5/5 while Calder's "90 square feet" sentence was rank 2, behind the layout paragraph. I checked that against the chunk text before I used it as the diagnosis.
+
+**4.** Before changing search, I asked why BM25 might fail to fix that swap. Equal-weight fusion ties when the two systems exchange rank 1 and 2, and the tie keeps the semantic order. I set the keyword weight to 1.5 from that, then confirmed with `store.py::search` that the size sentence came back first and the other four questions still had their phrase at rank 1.
+
 ## Stretch features (claimed before building)
 
 Two extras, both for the CLI. Not doing a second embedding model — that install pulls PyTorch.
@@ -399,17 +403,14 @@ The gate's best distance stays 0.317, because it uses the closest cosine in the 
 
 ## What's Still Broken
 
-<!-- For each criterion still missed after your fix: what you'd do about it,
-     and why you stopped where you did.
+None of the five written criteria is missed. After the rerank they are all still 5/5 against the targets in `criteria.md`. Two gaps are left, and the targets do not show them.
 
-     "I ran out of time" is fine if it's true. Pretending nothing is left is
-     not.
+The gate's reported distance is no longer always the nearest semantic chunk. Mongolia moved from 0.787 to 0.826, and the diesel question from 0.923 to 0.934, because BM25 dropped the closest chunk out of the five the gate sees. Both are still above 0.55, so criterion 3 stays met. I would keep the semantic nearest neighbor in the set the gate measures, and let BM25 reorder only the chunks the model reads. I stopped because that is a second change, and these five refusals still hold.
 
-     Milestone 5. -->
+The keyword weight of 1.5 exists to win Calder's rank swap. I do not have a question where meaning is right and the keywords point at a different chunk by a similar margin. That question could flip the wrong way, and criterion 1 would still pass as long as the right phrase stayed somewhere in the top 5. I stopped because this unit allows one change, and on these five test questions the phrase is now in rank 1.
 
 ## What I'd Do Differently
 
-<!-- Knowing what you know now — which of your five criteria would you write
-     differently, and why?
+Criterion 1. I would write: for all 5 questions, the top-ranked chunk contains that question's `expects` phrase. The version in `criteria.md` counts any of the top 5 and allows one miss. That passed on the before log while the size sentence was rank 2, so the table could not show the failure this unit's change was for.
 
-     Milestone 5. -->
+Criterion 3 I would keep at 4 of 5, and I would replace one probe with a campus question the corpus does not contain. Mongolia and the diesel question sit so far from 0.55 that dropping the true nearest neighbor still looks like a clean refusal.
